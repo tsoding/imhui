@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <math.h>
 
 #define GLEW_STATIC
 #include <GL/glew.h>
@@ -204,6 +205,29 @@ void MessageCallback(GLenum source,
             type, severity, message);
 }
 
+ImHui imhui = {
+    .width = DISPLAY_WIDTH,
+    .height = DISPLAY_HEIGHT,
+};
+
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+    (void) mods;
+    if (button == GLFW_MOUSE_BUTTON_LEFT) {
+        if (action == GLFW_PRESS) {
+            double xpos, ypos;
+            glfwGetCursorPos(window, &xpos, &ypos);
+            imhui_mouse_down(&imhui, (size_t) floor(xpos), (size_t)floor(ypos));
+        }
+
+        if (action == GLFW_RELEASE) {
+            double xpos, ypos;
+            glfwGetCursorPos(window, &xpos, &ypos);
+            imhui_mouse_up(&imhui, (size_t) floor(xpos), (size_t)floor(ypos));
+        }
+    }
+}
+
 int main()
 {
     if (!glfwInit()) {
@@ -238,6 +262,7 @@ int main()
     glDebugMessageCallback(MessageCallback, 0);
 
     glfwSetFramebufferSizeCallback(window, window_size_callback);
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -263,17 +288,15 @@ int main()
                 (float) DISPLAY_WIDTH,
                 (float) DISPLAY_HEIGHT);
 
-    ImHui imhui = {
-        .width = DISPLAY_WIDTH,
-        .height = DISPLAY_HEIGHT,
-    };
     ImHui_GL imhui_gl = {0};
 
     imhui_gl_begin(&imhui_gl, &imhui);
 
     while (!glfwWindowShouldClose(window)) {
         imhui_begin(&imhui);
-        imhui_text(&imhui, "Hello, World");
+        if (imhui_button(&imhui, "Hello, World")) {
+            printf("Button was clicked!\n");
+        }
         imhui_end(&imhui);
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
