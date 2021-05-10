@@ -108,7 +108,7 @@ typedef enum {
 
 typedef struct {
     GLuint vao;
-    GLuint vbo_ids[COUNT_IMHUI_ATTRIBS];
+    GLuint vert_vbo;
 } ImHui_GL;
 
 void imhui_gl_begin(ImHui_GL *imhui_gl, const ImHui *imhui)
@@ -116,43 +116,38 @@ void imhui_gl_begin(ImHui_GL *imhui_gl, const ImHui *imhui)
     glGenVertexArrays(1, &imhui_gl->vao);
     glBindVertexArray(imhui_gl->vao);
 
-    glGenBuffers(COUNT_IMHUI_ATTRIBS, imhui_gl->vbo_ids);
+    glGenBuffers(1, &imhui_gl->vert_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, imhui_gl->vert_vbo);
+    glBufferData(GL_ARRAY_BUFFER,
+                 sizeof(imhui->triangles),
+                 imhui->triangles,
+                 GL_DYNAMIC_DRAW);
 
     // Position
     {
         const ImHui_Attribs attrib = IMHUI_POSITION_ATTRIB;
-        glBindBuffer(GL_ARRAY_BUFFER, imhui_gl->vbo_ids[attrib]);
-        glBufferData(GL_ARRAY_BUFFER,
-                     sizeof(imhui->positions),
-                     NULL,
-                     GL_DYNAMIC_DRAW);
         glEnableVertexAttribArray(attrib);
         glVertexAttribPointer(
             attrib,             // index
             2,                  // numComponents
             GL_FLOAT,           // type
             0,                  // normalized
-            0,                  // stride
-            0                   // offset
+            sizeof(imhui->triangles[0].a), // stride
+            0                              // offset
         );
     }
 
     // Color
     {
         const ImHui_Attribs attrib = IMHUI_COLOR_ATTRIB;
-        glBindBuffer(GL_ARRAY_BUFFER, imhui_gl->vbo_ids[attrib]);
-        glBufferData(GL_ARRAY_BUFFER,
-                     sizeof(imhui->colors),
-                     NULL,
-                     GL_DYNAMIC_DRAW);
         glEnableVertexAttribArray(attrib);
         glVertexAttribPointer(
             attrib,             // index
             4,                  // numComponents
             GL_FLOAT,           // type
             0,                  // normalized
-            0,                  // stride
-            0                   // offset
+            sizeof(imhui->triangles[0].a),                 // stride
+            (void*) sizeof(imhui->triangles[0].a.position) // offset
         );
     }
 }
@@ -160,22 +155,14 @@ void imhui_gl_begin(ImHui_GL *imhui_gl, const ImHui *imhui)
 void imhui_gl_render(ImHui_GL *imhui_gl, const ImHui *imhui)
 {
     glBindVertexArray(imhui_gl->vao);
-
-    glBindBuffer(GL_ARRAY_BUFFER, imhui_gl->vbo_ids[IMHUI_POSITION_ATTRIB]);
+    glBindBuffer(GL_ARRAY_BUFFER, imhui_gl->vert_vbo);
     glBufferSubData(
         GL_ARRAY_BUFFER,
         0,
-        imhui->count * sizeof(imhui->positions[0]),
-        imhui->positions);
+        imhui->triangles_count * sizeof(imhui->triangles[0]),
+        imhui->triangles);
 
-    glBindBuffer(GL_ARRAY_BUFFER, imhui_gl->vbo_ids[IMHUI_COLOR_ATTRIB]);
-    glBufferSubData(
-        GL_ARRAY_BUFFER,
-        0,
-        imhui->count * sizeof(imhui->colors[0]),
-        imhui->colors);
-
-    glDrawArrays(GL_TRIANGLES, 0, imhui->count * 3);
+    glDrawArrays(GL_TRIANGLES, 0, imhui->triangles_count * TRIANGLE_COUNT);
 }
 
 void window_size_callback(GLFWwindow* window, int width, int height)

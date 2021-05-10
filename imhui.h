@@ -3,27 +3,27 @@
 
 #include <stdlib.h>
 
-#define CAPACITY 69
+#define TRIANGLES_CAPACITY 69
 #define EVENT_CAPACITY 69
 
-#define VERT_A 0
-#define VERT_B 1
-#define VERT_C 2
-
-#define IMHUI_BUTTON_SIZE vec2f(100.0f, 50.0f)
+#define IMHUI_BUTTON_SIZE vec2(100.0f, 50.0f)
 #define IMHUI_BUTTON_COLOR rgba(0.0f, 1.0f, 0.0f, 1.0f)
 #define IMHUI_BUTTON_COLOR_PRESSED rgba(1.0f, 0.0f, 0.0f, 1.0f)
 
+#define VEC2_COUNT 2
+
 typedef struct {
     float x, y;
-} Vec2f;
+} Vec2;
 
-Vec2f vec2f(float x, float y)
+Vec2 vec2(float x, float y)
 {
-    return (Vec2f) {
+    return (Vec2) {
         x, y
     };
 }
+
+#define RGBA_COUNT 4
 
 typedef struct {
     float r, g, b, a;
@@ -33,6 +33,34 @@ RGBA rgba(float r, float g, float b, float a)
 {
     return (RGBA) {
         r, g, b, a
+    };
+}
+
+typedef struct {
+    Vec2 position;
+    RGBA color;
+} Vertex;
+
+Vertex vertex(Vec2 position, RGBA color)
+{
+    return (Vertex) {
+        .position = position,
+        .color = color,
+    };
+}
+
+#define TRIANGLE_COUNT 3
+
+typedef struct {
+    Vertex a, b, c;
+} Triangle;
+
+Triangle triangle(Vertex a, Vertex b, Vertex c)
+{
+    return (Triangle) {
+        .a = a,
+        .b = b,
+        .c = c,
     };
 }
 
@@ -51,15 +79,21 @@ typedef union {
     ImHui_Event_Mouse mouse;
 } ImHui_Event;
 
+#define VERT_X 0
+#define VERT_Y 1
+#define VERT_R 2
+#define VERT_G 3
+#define VERT_B 4
+#define VERT_A 5
+
 typedef struct {
     size_t width, height;
 
     ImHui_Event events[EVENT_CAPACITY];
     size_t events_count;
 
-    Vec2f positions[CAPACITY][3];
-    RGBA colors[CAPACITY][3];
-    size_t count;
+    Triangle triangles[TRIANGLES_CAPACITY];
+    size_t triangles_count;
 } ImHui;
 
 void imhui_mouse_down(ImHui *imhui, size_t x, size_t y);
@@ -73,38 +107,31 @@ void imhui_end(ImHui *imhui);
 
 #ifdef IMHUI_IMPLEMENTATION
 
-static void imhui_append_tri(ImHui *imhui,
-                             Vec2f a, Vec2f b, Vec2f c,
-                             RGBA ac, RGBA bc, RGBA cc)
+static void imhui_append_tri(ImHui *imhui, Triangle t)
 {
-    if (imhui->count < CAPACITY) {
-        imhui->positions[imhui->count][VERT_A] = a;
-        imhui->positions[imhui->count][VERT_B] = b;
-        imhui->positions[imhui->count][VERT_C] = c;
-        imhui->colors[imhui->count][VERT_A] = ac;
-        imhui->colors[imhui->count][VERT_B] = bc;
-        imhui->colors[imhui->count][VERT_C] = cc;
-        imhui->count += 1;
+    if (imhui->triangles_count < TRIANGLES_CAPACITY) {
+        imhui->triangles[imhui->triangles_count++] = t;
     }
 }
 
-static void imhui_fill_rect(ImHui *imhui, Vec2f p, Vec2f s, RGBA c)
+static void imhui_fill_rect(ImHui *imhui, Vec2 p, Vec2 s, RGBA c)
 {
     imhui_append_tri(
         imhui,
-        p,
-        vec2f(p.x + s.x, p.y),
-        vec2f(p.x + s.x, p.y + s.y),
-        c, c, c);
+        triangle(
+            vertex(p, c),
+            vertex(vec2(p.x + s.x, p.y), c),
+            vertex(vec2(p.x + s.x, p.y + s.y), c)));
+
     imhui_append_tri(
         imhui,
-        p,
-        vec2f(p.x + s.x, p.y + s.y),
-        vec2f(p.x, p.y + s.y),
-        c, c, c);
+        triangle(
+            vertex(p, c),
+            vertex(vec2(p.x + s.x, p.y + s.y), c),
+            vertex(vec2(p.x, p.y + s.y), c)));
 }
 
-static bool imhui_rect_contains(Vec2f p, Vec2f s, Vec2f t)
+static bool imhui_rect_contains(Vec2 p, Vec2 s, Vec2 t)
 {
     return p.x <= t.x && t.x < p.x + s.x &&
            p.y <= t.y && t.y < p.y + s.y;
@@ -132,7 +159,7 @@ void imhui_mouse_up(ImHui *imhui, size_t x, size_t y)
 
 void imhui_begin(ImHui *imhui)
 {
-    imhui->count = 0;
+    imhui->triangles_count = 0;
 }
 
 void imhui_text(ImHui *imhui, const char *text)
@@ -146,17 +173,17 @@ bool imhui_button(ImHui *imhui, const char *text)
     // TODO: imhui_button does not display its text
     (void) text;
 
-    const Vec2f p = vec2f(0.0, 0.0);
-    const Vec2f s = IMHUI_BUTTON_SIZE;
+    const Vec2 p = vec2(0.0, 0.0);
+    const Vec2 s = IMHUI_BUTTON_SIZE;
 
     for (size_t i = 0; i < imhui->events_count; ++i) {
         switch (imhui->events[i].type) {
         case IMHUI_EVENT_MOUSE_DOWN: {
             const ImHui_Event_Mouse *mouse = &imhui->events[i].mouse;
-            if (imhui_rect_contains(p, s, vec2f((float) mouse->x, (float) mouse->y))) {
+            if (imhui_rect_contains(p, s, vec2((float) mouse->x, (float) mouse->y))) {
                 imhui_fill_rect(
                     imhui,
-                    vec2f(0.0, 0.0),
+                    vec2(0.0, 0.0),
                     IMHUI_BUTTON_SIZE,
                     IMHUI_BUTTON_COLOR_PRESSED);
                 return false;
@@ -165,10 +192,10 @@ bool imhui_button(ImHui *imhui, const char *text)
         break;
         case IMHUI_EVENT_MOUSE_UP: {
             const ImHui_Event_Mouse *mouse = &imhui->events[i].mouse;
-            if (imhui_rect_contains(p, s, vec2f((float) mouse->x, (float) mouse->y))) {
+            if (imhui_rect_contains(p, s, vec2((float) mouse->x, (float) mouse->y))) {
                 imhui_fill_rect(
                     imhui,
-                    vec2f(0.0, 0.0),
+                    vec2(0.0, 0.0),
                     IMHUI_BUTTON_SIZE,
                     IMHUI_BUTTON_COLOR);
                 return true;
@@ -180,7 +207,7 @@ bool imhui_button(ImHui *imhui, const char *text)
 
     imhui_fill_rect(
         imhui,
-        vec2f(0.0, 0.0),
+        vec2(0.0, 0.0),
         IMHUI_BUTTON_SIZE,
         IMHUI_BUTTON_COLOR);
 
