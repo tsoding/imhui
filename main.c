@@ -119,8 +119,8 @@ void imhui_gl_begin(ImHui_GL *imhui_gl, const ImHui *imhui)
     glGenBuffers(1, &imhui_gl->vert_vbo);
     glBindBuffer(GL_ARRAY_BUFFER, imhui_gl->vert_vbo);
     glBufferData(GL_ARRAY_BUFFER,
-                 sizeof(imhui->triangles),
-                 imhui->triangles,
+                 sizeof(imhui->vertices),
+                 imhui->vertices,
                  GL_DYNAMIC_DRAW);
 
     // Position
@@ -132,8 +132,8 @@ void imhui_gl_begin(ImHui_GL *imhui_gl, const ImHui *imhui)
             2,                  // numComponents
             GL_FLOAT,           // type
             0,                  // normalized
-            sizeof(imhui->triangles[0].a), // stride
-            0                              // offset
+            sizeof(imhui->vertices[0]), // stride
+            0                           // offset
         );
     }
 
@@ -146,8 +146,8 @@ void imhui_gl_begin(ImHui_GL *imhui_gl, const ImHui *imhui)
             4,                  // numComponents
             GL_FLOAT,           // type
             0,                  // normalized
-            sizeof(imhui->triangles[0].a),                 // stride
-            (void*) sizeof(imhui->triangles[0].a.position) // offset
+            sizeof(imhui->vertices[0]),                 // stride
+            (void*) sizeof(imhui->vertices[0].position) // offset
         );
     }
 }
@@ -159,10 +159,13 @@ void imhui_gl_render(ImHui_GL *imhui_gl, const ImHui *imhui)
     glBufferSubData(
         GL_ARRAY_BUFFER,
         0,
-        imhui->triangles_count * sizeof(imhui->triangles[0]),
-        imhui->triangles);
+        imhui->vertices_count * sizeof(imhui->vertices[0]),
+        imhui->vertices);
 
-    glDrawArrays(GL_TRIANGLES, 0, imhui->triangles_count * TRIANGLE_COUNT);
+    glDrawElements(GL_TRIANGLES,
+                   imhui->triangles_count * TRIANGLE_COUNT,
+                   GL_UNSIGNED_INT,
+                   imhui->triangles);
 }
 
 void window_size_callback(GLFWwindow* window, int width, int height)

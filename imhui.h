@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 
+#define VERTICES_CAPACITY 69
 #define TRIANGLES_CAPACITY 69
 #define EVENT_CAPACITY 69
 
@@ -52,10 +53,10 @@ Vertex vertex(Vec2 position, RGBA color)
 #define TRIANGLE_COUNT 3
 
 typedef struct {
-    Vertex a, b, c;
+    unsigned int a, b, c;
 } Triangle;
 
-Triangle triangle(Vertex a, Vertex b, Vertex c)
+Triangle triangle(unsigned int a, unsigned int b, unsigned int c)
 {
     return (Triangle) {
         .a = a,
@@ -79,18 +80,14 @@ typedef union {
     ImHui_Event_Mouse mouse;
 } ImHui_Event;
 
-#define VERT_X 0
-#define VERT_Y 1
-#define VERT_R 2
-#define VERT_G 3
-#define VERT_B 4
-#define VERT_A 5
-
 typedef struct {
     size_t width, height;
 
     ImHui_Event events[EVENT_CAPACITY];
     size_t events_count;
+
+    Vertex vertices[VERTICES_CAPACITY];
+    size_t vertices_count;
 
     Triangle triangles[TRIANGLES_CAPACITY];
     size_t triangles_count;
@@ -107,28 +104,29 @@ void imhui_end(ImHui *imhui);
 
 #ifdef IMHUI_IMPLEMENTATION
 
-static void imhui_append_tri(ImHui *imhui, Triangle t)
+static unsigned int imhui_append_vertex(ImHui *imhui, Vertex v)
 {
-    if (imhui->triangles_count < TRIANGLES_CAPACITY) {
-        imhui->triangles[imhui->triangles_count++] = t;
-    }
+    assert(imhui->vertices_count < VERTICES_CAPACITY);
+    unsigned int result = imhui->vertices_count;
+    imhui->vertices[imhui->vertices_count++] = v;
+    return result;
+}
+
+static void imhui_append_triangle(ImHui *imhui, Triangle t)
+{
+    assert(imhui->triangles_count < TRIANGLES_CAPACITY);
+    imhui->triangles[imhui->triangles_count++] = t;
 }
 
 static void imhui_fill_rect(ImHui *imhui, Vec2 p, Vec2 s, RGBA c)
 {
-    imhui_append_tri(
-        imhui,
-        triangle(
-            vertex(p, c),
-            vertex(vec2(p.x + s.x, p.y), c),
-            vertex(vec2(p.x + s.x, p.y + s.y), c)));
+    const unsigned int p0 = imhui_append_vertex(imhui, vertex(p, c));
+    const unsigned int p1 = imhui_append_vertex(imhui, vertex(vec2(p.x + s.x, p.y), c));
+    const unsigned int p2 = imhui_append_vertex(imhui, vertex(vec2(p.x, p.y + s.y), c));
+    const unsigned int p3 = imhui_append_vertex(imhui, vertex(vec2(p.x + s.x, p.y + s.y), c));
 
-    imhui_append_tri(
-        imhui,
-        triangle(
-            vertex(p, c),
-            vertex(vec2(p.x + s.x, p.y + s.y), c),
-            vertex(vec2(p.x, p.y + s.y), c)));
+    imhui_append_triangle(imhui, triangle(p0, p1, p2));
+    imhui_append_triangle(imhui, triangle(p1, p2, p3));
 }
 
 static bool imhui_rect_contains(Vec2 p, Vec2 s, Vec2 t)
@@ -159,6 +157,7 @@ void imhui_mouse_up(ImHui *imhui, size_t x, size_t y)
 
 void imhui_begin(ImHui *imhui)
 {
+    imhui->vertices_count = 0;
     imhui->triangles_count = 0;
 }
 
