@@ -8,6 +8,7 @@
 
 #define IMHUI_BUTTON_SIZE vec2(100.0f, 50.0f)
 #define IMHUI_BUTTON_COLOR rgba(0.0f, 0.8f, 0.0f, 1.0f)
+#define IMHUI_BUTTON_COLOR_HOT rgba(0.0f, 1.0f, 0.0f, 1.0f)
 #define IMHUI_BUTTON_COLOR_ACTIVE rgba(1.0f, 0.0f, 0.0f, 1.0f)
 #define IMHUI_PADDING 10.0f
 
@@ -177,10 +178,13 @@ bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
     RGBA color = IMHUI_BUTTON_COLOR;
 
     if (imhui->active != id) {
-        if (imhui_rect_contains(p, s, imhui->mouse_pos) && (imhui->mouse_buttons & BUTTON_LEFT)) {
-            if (imhui->active == 0) {
-                imhui->active = id;
+        if (imhui_rect_contains(p, s, imhui->mouse_pos)) {
+            if (imhui->mouse_buttons & BUTTON_LEFT) {
+                if (imhui->active == 0) {
+                    imhui->active = id;
+                }
             }
+            color = IMHUI_BUTTON_COLOR_HOT;
         }
     } else {
         color = IMHUI_BUTTON_COLOR_ACTIVE;
