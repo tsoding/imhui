@@ -5,11 +5,11 @@
 
 #define VERTICES_CAPACITY 69
 #define TRIANGLES_CAPACITY 69
-#define EVENT_CAPACITY 69
 
 #define IMHUI_BUTTON_SIZE vec2(100.0f, 50.0f)
-#define IMHUI_BUTTON_COLOR rgba(0.0f, 1.0f, 0.0f, 1.0f)
-#define IMHUI_BUTTON_COLOR_PRESSED rgba(1.0f, 0.0f, 0.0f, 1.0f)
+#define IMHUI_BUTTON_COLOR rgba(0.0f, 0.8f, 0.0f, 1.0f)
+#define IMHUI_BUTTON_COLOR_ACTIVE rgba(1.0f, 0.0f, 0.0f, 1.0f)
+#define IMHUI_PADDING 10.0f
 
 #define VEC2_COUNT 2
 
@@ -66,38 +66,35 @@ Triangle triangle(unsigned int a, unsigned int b, unsigned int c)
 }
 
 typedef enum {
-    IMHUI_EVENT_MOUSE_DOWN = 0,
-    IMHUI_EVENT_MOUSE_UP,
-} ImHui_Event_Type;
+    BUTTON_LEFT = 1,
+} Buttons;
 
-typedef struct {
-    ImHui_Event_Type type;
-    size_t x, y;
-} ImHui_Event_Mouse;
-
-typedef union {
-    ImHui_Event_Type type;
-    ImHui_Event_Mouse mouse;
-} ImHui_Event;
+typedef int ImHui_ID;
 
 typedef struct {
     size_t width, height;
 
-    ImHui_Event events[EVENT_CAPACITY];
-    size_t events_count;
+    ImHui_ID active;
+
+    Vec2 mouse_pos;
+    Buttons mouse_buttons;
 
     Vertex vertices[VERTICES_CAPACITY];
     size_t vertices_count;
 
     Triangle triangles[TRIANGLES_CAPACITY];
     size_t triangles_count;
+
+    Vec2 last_widget_position;
 } ImHui;
 
-void imhui_mouse_down(ImHui *imhui, size_t x, size_t y);
-void imhui_mouse_up(ImHui *imhui, size_t x, size_t y);
+void imhui_mouse_down(ImHui *imhui);
+void imhui_mouse_up(ImHui *imhui);
+void imhui_mouse_move(ImHui *imhui, float x, float y);
 
 void imhui_begin(ImHui *imhui);
 void imhui_text(ImHui *imhui, const char *text);
+bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id);
 void imhui_end(ImHui *imhui);
 
 #endif // IMHUI_H_
@@ -135,30 +132,26 @@ static bool imhui_rect_contains(Vec2 p, Vec2 s, Vec2 t)
            p.y <= t.y && t.y < p.y + s.y;
 }
 
-void imhui_mouse_down(ImHui *imhui, size_t x, size_t y)
+void imhui_mouse_down(ImHui *imhui)
 {
-    if (imhui->events_count < EVENT_CAPACITY) {
-        imhui->events[imhui->events_count].type = IMHUI_EVENT_MOUSE_DOWN;
-        imhui->events[imhui->events_count].mouse.x = x;
-        imhui->events[imhui->events_count].mouse.y = y;
-        imhui->events_count += 1;
-    }
+    imhui->mouse_buttons = imhui->mouse_buttons | BUTTON_LEFT;
 }
 
-void imhui_mouse_up(ImHui *imhui, size_t x, size_t y)
+void imhui_mouse_up(ImHui *imhui)
 {
-    if (imhui->events_count < EVENT_CAPACITY) {
-        imhui->events[imhui->events_count].type = IMHUI_EVENT_MOUSE_UP;
-        imhui->events[imhui->events_count].mouse.x = x;
-        imhui->events[imhui->events_count].mouse.y = y;
-        imhui->events_count += 1;
-    }
+    imhui->mouse_buttons = imhui->mouse_buttons & (~BUTTON_LEFT);
+}
+
+void imhui_mouse_move(ImHui *imhui, float x, float y)
+{
+    imhui->mouse_pos = vec2(x, y);
 }
 
 void imhui_begin(ImHui *imhui)
 {
     imhui->vertices_count = 0;
     imhui->triangles_count = 0;
+    imhui->last_widget_position = vec2(0.0f, 0.0f);
 }
 
 void imhui_text(ImHui *imhui, const char *text)
@@ -167,55 +160,47 @@ void imhui_text(ImHui *imhui, const char *text)
     (void) text;
 }
 
-bool imhui_button(ImHui *imhui, const char *text)
+bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
 {
     // TODO: imhui_button does not display its text
     (void) text;
+    (void) id;
 
-    const Vec2 p = vec2(0.0, 0.0);
+    const Vec2 p = imhui->last_widget_position;
     const Vec2 s = IMHUI_BUTTON_SIZE;
 
-    for (size_t i = 0; i < imhui->events_count; ++i) {
-        switch (imhui->events[i].type) {
-        case IMHUI_EVENT_MOUSE_DOWN: {
-            const ImHui_Event_Mouse *mouse = &imhui->events[i].mouse;
-            if (imhui_rect_contains(p, s, vec2((float) mouse->x, (float) mouse->y))) {
-                imhui_fill_rect(
-                    imhui,
-                    vec2(0.0, 0.0),
-                    IMHUI_BUTTON_SIZE,
-                    IMHUI_BUTTON_COLOR_PRESSED);
-                return false;
-            }
+    imhui->last_widget_position =
+        vec2(imhui->last_widget_position.x,
+             imhui->last_widget_position.y + IMHUI_BUTTON_SIZE.y + IMHUI_PADDING);
+
+    bool clicked = false;
+    RGBA color = IMHUI_BUTTON_COLOR;
+
+    if (imhui->active != id) {
+        if (imhui_rect_contains(p, s, imhui->mouse_pos) && (imhui->mouse_buttons & BUTTON_LEFT)) {
+            imhui->active = id;
         }
-        break;
-        case IMHUI_EVENT_MOUSE_UP: {
-            const ImHui_Event_Mouse *mouse = &imhui->events[i].mouse;
-            if (imhui_rect_contains(p, s, vec2((float) mouse->x, (float) mouse->y))) {
-                imhui_fill_rect(
-                    imhui,
-                    vec2(0.0, 0.0),
-                    IMHUI_BUTTON_SIZE,
-                    IMHUI_BUTTON_COLOR);
-                return true;
+    } else {
+        color = IMHUI_BUTTON_COLOR_ACTIVE;
+        if (!(imhui->mouse_buttons & BUTTON_LEFT)) {
+            if (imhui_rect_contains(p, s, imhui->mouse_pos)) {
+                clicked = true;
             }
-        }
-        break;
+            imhui->active = 0;
         }
     }
 
     imhui_fill_rect(
         imhui,
-        vec2(0.0, 0.0),
+        p,
         IMHUI_BUTTON_SIZE,
-        IMHUI_BUTTON_COLOR);
+        color);
 
-    return false;
+    return clicked;
 }
 
 void imhui_end(ImHui *imhui)
 {
-    imhui->events_count = 0;
 }
 
 #endif // IMHUI_IMPLEMENTATION

@@ -200,6 +200,12 @@ ImHui imhui = {
     .height = DISPLAY_HEIGHT,
 };
 
+void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
+{
+    (void) window;
+    imhui_mouse_move(&imhui, xpos, ypos);
+}
+
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
     (void) mods;
@@ -207,13 +213,13 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
         if (action == GLFW_PRESS) {
             double xpos, ypos;
             glfwGetCursorPos(window, &xpos, &ypos);
-            imhui_mouse_down(&imhui, (size_t) floor(xpos), (size_t)floor(ypos));
+            imhui_mouse_down(&imhui);
         }
 
         if (action == GLFW_RELEASE) {
             double xpos, ypos;
             glfwGetCursorPos(window, &xpos, &ypos);
-            imhui_mouse_up(&imhui, (size_t) floor(xpos), (size_t)floor(ypos));
+            imhui_mouse_up(&imhui);
         }
     }
 }
@@ -253,6 +259,7 @@ int main()
 
     glfwSetFramebufferSizeCallback(window, window_size_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
+    glfwSetCursorPosCallback(window, cursor_position_callback);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -284,8 +291,12 @@ int main()
 
     while (!glfwWindowShouldClose(window)) {
         imhui_begin(&imhui);
-        if (imhui_button(&imhui, "Hello, World")) {
-            printf("Button was clicked!\n");
+        {
+            for (size_t i = 1; i <= 5; ++i) {
+                if (imhui_button(&imhui, "Button", i)) {
+                    printf("%d button was clicked!\n", i);
+                }
+            }
         }
         imhui_end(&imhui);
 
