@@ -178,7 +178,9 @@ bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
 
     if (imhui->active != id) {
         if (imhui_rect_contains(p, s, imhui->mouse_pos) && (imhui->mouse_buttons & BUTTON_LEFT)) {
-            imhui->active = id;
+            if (imhui->active == 0) {
+                imhui->active = id;
+            }
         }
     } else {
         color = IMHUI_BUTTON_COLOR_ACTIVE;
@@ -201,6 +203,7 @@ bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
 
 void imhui_end(ImHui *imhui)
 {
+    (void) imhui;
 }
 
 #endif // IMHUI_IMPLEMENTATION

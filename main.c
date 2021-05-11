@@ -294,7 +294,7 @@ int main()
         {
             for (size_t i = 1; i <= 5; ++i) {
                 if (imhui_button(&imhui, "Button", i)) {
-                    printf("%d button was clicked!\n", i);
+                    printf("%zu button was clicked!\n", i);
                 }
             }
         }
