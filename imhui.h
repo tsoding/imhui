@@ -278,8 +278,10 @@ static const unsigned char FONT[FONT_WIDTH * FONT_HEIGHT] = {
 #define IMHUI_BUTTON_COLOR rgba(0.0f, 0.8f, 0.0f, 1.0f)
 #define IMHUI_BUTTON_COLOR_HOT rgba(0.0f, 1.0f, 0.0f, 1.0f)
 #define IMHUI_BUTTON_COLOR_ACTIVE rgba(1.0f, 0.0f, 0.0f, 1.0f)
+#define IMHUI_BUTTON_COLOR_BASE rgba(0.4f, 0.4f, 0.4f, 1.0f)
 #define IMHUI_BUTTON_TEXT_SCALE 2.0f
 #define IMHUI_BUTTON_TEXT_COLOR rgba(0.0f, 0.0f, 0.0f, 1.0f)
+#define IMHUI_BUTTON_OFFSET vec2(2.0f, 2.0f)
 #define IMHUI_PADDING 10.0f
 
 #define VEC2_COUNT 2
@@ -479,7 +481,7 @@ void imhui_begin(ImHui *imhui)
 {
     imhui->vertices_count = 0;
     imhui->triangles_count = 0;
-    imhui->last_widget_position = vec2(0.0f, 0.0f);
+    imhui->last_widget_position = vec2(100.0f, 100.0f);
 }
 
 void imhui_text(ImHui *imhui, const char *text)
@@ -499,6 +501,7 @@ bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
 
     bool clicked = false;
     RGBA color = IMHUI_BUTTON_COLOR;
+    Vec2 offset = IMHUI_BUTTON_OFFSET;
 
     if (imhui->active != id) {
         if (imhui_rect_contains(p, s, imhui->mouse_pos)) {
@@ -511,6 +514,7 @@ bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
         }
     } else {
         color = IMHUI_BUTTON_COLOR_ACTIVE;
+        offset = vec2(0.0f, 0.0f);
         if (!(imhui->mouse_buttons & BUTTON_LEFT)) {
             if (imhui_rect_contains(p, s, imhui->mouse_pos)) {
                 clicked = true;
@@ -521,7 +525,13 @@ bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
 
     imhui_fill_rect(
         imhui,
-        p,
+        vec2(p.x, p.y),
+        IMHUI_BUTTON_SIZE,
+        IMHUI_BUTTON_COLOR_BASE);
+
+    imhui_fill_rect(
+        imhui,
+        vec2(p.x - offset.x, p.y - offset.y),
         IMHUI_BUTTON_SIZE,
         color);
 
@@ -532,8 +542,8 @@ bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
     imhui_render_text(
         imhui,
         vec2(
-            p.x + IMHUI_BUTTON_SIZE.x * 0.5f - text_width * 0.5f,
-            p.y + IMHUI_BUTTON_SIZE.y * 0.5f - text_height * 0.5f),
+            p.x - offset.x + IMHUI_BUTTON_SIZE.x * 0.5f - text_width * 0.5f,
+            p.y - offset.y + IMHUI_BUTTON_SIZE.y * 0.5f - text_height * 0.5f),
         IMHUI_BUTTON_TEXT_SCALE,
         IMHUI_BUTTON_TEXT_COLOR,
         text);
