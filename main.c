@@ -202,8 +202,13 @@ ImHui imhui = {
 
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 {
-    (void) window;
-    imhui_mouse_move(&imhui, xpos, ypos);
+    int width, height;
+    glfwGetWindowSize(window, &width, &height);
+
+    const double offset_x = width / 2 - DISPLAY_WIDTH / 2;
+    const double offset_y = height / 2 - DISPLAY_HEIGHT / 2;
+
+    imhui_mouse_move(&imhui, xpos - offset_x, ypos - offset_y);
 }
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
