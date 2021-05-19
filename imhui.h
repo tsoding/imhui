@@ -522,7 +522,7 @@ void imhui_render_char(ImHui *imhui, Vec2 p, float s, RGBA color, char c)
                 const size_t x = x0 + xo;
                 const size_t y = y0 + yo;
                 if (FONT[y * FONT_WIDTH + x] > 0x00) {
-                    // TODO: imhui_render_char the vertices in the adjacent pixels are not reused via the indexing
+                    // TODO(#5): imhui_render_char the vertices in the adjacent pixels are not reused via the indexing
                     imhui_fill_rect(
                         imhui,
                         vec2(p.x + xo * s, p.y + yo * s),
