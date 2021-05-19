@@ -271,8 +271,9 @@ static const unsigned char FONT[FONT_WIDTH * FONT_HEIGHT] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 };
 
-#define VERTICES_CAPACITY (1024 * 8)
-#define TRIANGLES_CAPACITY (1024 * 8)
+#define VERTICES_CAPACITY (1024 * 16)
+#define TRIANGLES_CAPACITY (1024 * 16)
+#define LAYOUT_STACK_CAPACITY 1024
 
 #define IMHUI_BUTTON_SIZE vec2(100.0f, 50.0f)
 #define IMHUI_BUTTON_COLOR rgba(0.0f, 0.8f, 0.0f, 1.0f)
@@ -344,6 +345,16 @@ typedef enum {
 
 typedef int ImHui_ID;
 
+typedef enum {
+    IMHUI_VERT_LAYOUT,
+    IMHUI_HORZ_LAYOUT,
+} ImHui_Layout_Type;
+
+typedef struct {
+    ImHui_Layout_Type type;
+    float padding;
+} ImHui_Layout;
+
 typedef struct {
     size_t width, height;
 
@@ -357,6 +368,9 @@ typedef struct {
 
     Triangle triangles[TRIANGLES_CAPACITY];
     size_t triangles_count;
+
+    ImHui_Layout layout_stack[LAYOUT_STACK_CAPACITY];
+    size_t layout_stack_size;
 
     Vec2 last_widget_position;
 } ImHui;
@@ -375,9 +389,53 @@ bool imhui_font_char_position(char c, size_t *x, size_t *y);
 void imhui_render_char(ImHui *imhui, Vec2 p, float s, RGBA color, char c);
 void imhui_render_text(ImHui *imhui, Vec2 p, float s, RGBA color, const char *text);
 
+void imhui_layout_begin(ImHui *imhui, ImHui_Layout_Type type, float padding);
+void imhui_layout_end(ImHui *imhui);
+
 #endif // IMHUI_H_
 
 #ifdef IMHUI_IMPLEMENTATION
+
+void imhui_layout_begin(ImHui *imhui, ImHui_Layout_Type type, float padding)
+{
+    assert(imhui->layout_stack_size < LAYOUT_STACK_CAPACITY);
+    imhui->layout_stack[imhui->layout_stack_size].type = type;
+    imhui->layout_stack[imhui->layout_stack_size].padding = padding;
+    imhui->layout_stack_size += 1;
+}
+
+void imhui_layout_end(ImHui *imhui)
+{
+    assert(imhui->layout_stack_size > 0);
+    --imhui->layout_stack_size;
+}
+
+static ImHui_Layout imhui_top_layout(ImHui *imhui)
+{
+    assert(imhui->layout_stack_size > 0);
+    return imhui->layout_stack[imhui->layout_stack_size - 1];
+}
+
+static Vec2 imhui_next_widget_position(ImHui *imhui, Vec2 widget_size)
+{
+    Vec2 result = imhui->last_widget_position;
+
+    ImHui_Layout layout = imhui_top_layout(imhui);
+
+    switch (layout.type) {
+    case IMHUI_VERT_LAYOUT:
+        imhui->last_widget_position.y += widget_size.y + layout.padding;
+        break;
+    case IMHUI_HORZ_LAYOUT:
+        imhui->last_widget_position.x += widget_size.x + layout.padding;
+        break;
+    default:
+        assert(false && "imhui_next_widget_position: unreachable");
+        exit(1);
+    }
+
+    return result;
+}
 
 bool imhui_font_char_position(char c, size_t *x, size_t *y)
 {
@@ -449,6 +507,8 @@ void imhui_render_char(ImHui *imhui, Vec2 p, float s, RGBA color, char c)
     }
 }
 
+// TODO: consider rendering the text with bitmap textures instead of triangle
+// It's too many god damn triangles
 void imhui_render_text(ImHui *imhui, Vec2 p, float s, RGBA color, const char *text)
 {
     const size_t n = strlen(text);
@@ -492,12 +552,8 @@ void imhui_text(ImHui *imhui, const char *text)
 
 bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
 {
-    const Vec2 p = imhui->last_widget_position;
+    const Vec2 p = imhui_next_widget_position(imhui, IMHUI_BUTTON_SIZE);
     const Vec2 s = IMHUI_BUTTON_SIZE;
-
-    imhui->last_widget_position =
-        vec2(imhui->last_widget_position.x,
-             imhui->last_widget_position.y + IMHUI_BUTTON_SIZE.y + IMHUI_PADDING);
 
     bool clicked = false;
     RGBA color = IMHUI_BUTTON_COLOR;
@@ -519,6 +575,8 @@ bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
             if (imhui_rect_contains(p, s, imhui->mouse_pos)) {
                 clicked = true;
             }
+            // TODO: it's a little bit confusing to use `active == 0` as the indication of no active widget
+            // But using `-1` is actually against the zero initialization rule of the ImHui struct
             imhui->active = 0;
         }
     }

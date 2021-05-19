@@ -297,11 +297,11 @@ int main()
     while (!glfwWindowShouldClose(window)) {
         imhui_begin(&imhui, vec2(0.0f, 0.0f));
         {
+            imhui_layout_begin(&imhui, IMHUI_VERT_LAYOUT, 20.0f);
             for (size_t i = 1; i <= 5; ++i) {
-                if (imhui_button(&imhui, "Button", i)) {
-                    printf("%zu button was clicked!\n", i);
-                }
+                imhui_button(&imhui, "Button", i);
             }
+            imhui_layout_end(&imhui);
         }
         imhui_end(&imhui);
 
