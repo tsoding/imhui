@@ -295,13 +295,21 @@ int main()
     imhui_gl_begin(&imhui_gl, &imhui);
 
     while (!glfwWindowShouldClose(window)) {
-        imhui_begin(&imhui, vec2(0.0f, 0.0f));
+        const float PADDING = 10.0f;
+        imhui_begin(&imhui, vec2(0.0f, 0.0f), PADDING);
         {
-            imhui_layout_begin(&imhui, IMHUI_VERT_LAYOUT, 20.0f);
-            for (size_t i = 1; i <= 5; ++i) {
-                imhui_button(&imhui, "Button", i);
+            const size_t ROWS = 10;
+            const size_t COLS = 5;
+            for (size_t i = 0; i < ROWS; ++i) {
+                imhui_layout_begin(&imhui, IMHUI_HORZ_LAYOUT, PADDING);
+                for (size_t j = 0; j < COLS; ++j) {
+                    ImHui_ID id = i * COLS + j + 1;
+                    if (imhui_button(&imhui, "Button", id)) {
+                        printf("Clicked button %d\n", id);
+                    }
+                }
+                imhui_layout_end(&imhui);
             }
-            imhui_layout_end(&imhui);
         }
         imhui_end(&imhui);
 

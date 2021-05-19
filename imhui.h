@@ -271,8 +271,8 @@ static const unsigned char FONT[FONT_WIDTH * FONT_HEIGHT] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 };
 
-#define VERTICES_CAPACITY (1024 * 16)
-#define TRIANGLES_CAPACITY (1024 * 16)
+#define VERTICES_CAPACITY (1024 * 32)
+#define TRIANGLES_CAPACITY (1024 * 32)
 #define LAYOUT_STACK_CAPACITY 1024
 
 #define IMHUI_BUTTON_SIZE vec2(100.0f, 50.0f)
@@ -352,6 +352,8 @@ typedef enum {
 
 typedef struct {
     ImHui_Layout_Type type;
+    Vec2 start;
+    Vec2 size;
     float padding;
 } ImHui_Layout;
 
@@ -371,15 +373,13 @@ typedef struct {
 
     ImHui_Layout layout_stack[LAYOUT_STACK_CAPACITY];
     size_t layout_stack_size;
-
-    Vec2 last_widget_position;
 } ImHui;
 
 void imhui_mouse_down(ImHui *imhui);
 void imhui_mouse_up(ImHui *imhui);
 void imhui_mouse_move(ImHui *imhui, float x, float y);
 
-void imhui_begin(ImHui *imhui, Vec2 position);
+void imhui_begin(ImHui *imhui, Vec2 position, float padding);
 void imhui_text(ImHui *imhui, const char *text);
 bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id);
 void imhui_end(ImHui *imhui);
@@ -396,45 +396,74 @@ void imhui_layout_end(ImHui *imhui);
 
 #ifdef IMHUI_IMPLEMENTATION
 
-void imhui_layout_begin(ImHui *imhui, ImHui_Layout_Type type, float padding)
+static void imhui_layout_start(ImHui *imhui, ImHui_Layout_Type type, Vec2 start, float padding)
 {
     assert(imhui->layout_stack_size < LAYOUT_STACK_CAPACITY);
     imhui->layout_stack[imhui->layout_stack_size].type = type;
     imhui->layout_stack[imhui->layout_stack_size].padding = padding;
+    imhui->layout_stack[imhui->layout_stack_size].size = vec2(0.0f, 0.0f);
+    imhui->layout_stack[imhui->layout_stack_size].start = start;
     imhui->layout_stack_size += 1;
 }
 
-void imhui_layout_end(ImHui *imhui)
+static ImHui_Layout *imhui_top_layout(ImHui *imhui)
 {
     assert(imhui->layout_stack_size > 0);
-    --imhui->layout_stack_size;
+    return &imhui->layout_stack[imhui->layout_stack_size - 1];
 }
 
-static ImHui_Layout imhui_top_layout(ImHui *imhui)
+static Vec2 imhui_next_widget_position(ImHui *imhui)
 {
-    assert(imhui->layout_stack_size > 0);
-    return imhui->layout_stack[imhui->layout_stack_size - 1];
-}
+    ImHui_Layout *layout = imhui_top_layout(imhui);
 
-static Vec2 imhui_next_widget_position(ImHui *imhui, Vec2 widget_size)
-{
-    Vec2 result = imhui->last_widget_position;
-
-    ImHui_Layout layout = imhui_top_layout(imhui);
-
-    switch (layout.type) {
+    switch (layout->type) {
     case IMHUI_VERT_LAYOUT:
-        imhui->last_widget_position.y += widget_size.y + layout.padding;
-        break;
+        return vec2(layout->start.x, layout->start.y + layout->size.y);
     case IMHUI_HORZ_LAYOUT:
-        imhui->last_widget_position.x += widget_size.x + layout.padding;
-        break;
+        return vec2(layout->start.x + layout->size.x, layout->start.y);
     default:
         assert(false && "imhui_next_widget_position: unreachable");
         exit(1);
     }
+}
 
-    return result;
+static void imhui_expand_layout(ImHui *imhui, Vec2 widget_size)
+{
+    ImHui_Layout *layout = imhui_top_layout(imhui);
+
+    switch (layout->type) {
+    case IMHUI_VERT_LAYOUT:
+        layout->size.y += widget_size.y + layout->padding;
+        if (layout->size.x < widget_size.x) {
+            layout->size.x = widget_size.x;
+        }
+        break;
+    case IMHUI_HORZ_LAYOUT:
+        layout->size.x += widget_size.x + layout->padding;
+        if (layout->size.y < widget_size.y) {
+            layout->size.y = widget_size.y;
+        }
+        break;
+    default:
+        assert(false && "imhui_expand_layout: unreachable");
+        exit(1);
+    }
+}
+
+void imhui_layout_begin(ImHui *imhui, ImHui_Layout_Type type, float padding)
+{
+    const Vec2 start = imhui_next_widget_position(imhui);
+    imhui_layout_start(imhui, type, start, padding);
+}
+
+void imhui_layout_end(ImHui *imhui)
+{
+    Vec2 child_layout_size = imhui_top_layout(imhui)->size;
+    --imhui->layout_stack_size;
+
+    if (imhui->layout_stack_size > 0) {
+        imhui_expand_layout(imhui, child_layout_size);
+    }
 }
 
 bool imhui_font_char_position(char c, size_t *x, size_t *y)
@@ -537,23 +566,25 @@ void imhui_mouse_move(ImHui *imhui, float x, float y)
     imhui->mouse_pos = vec2(x, y);
 }
 
-void imhui_begin(ImHui *imhui, Vec2 position)
+void imhui_begin(ImHui *imhui, Vec2 start, float padding)
 {
     imhui->vertices_count = 0;
     imhui->triangles_count = 0;
-    imhui->last_widget_position = position;
+    imhui_layout_start(imhui, IMHUI_VERT_LAYOUT, start, padding);
 }
 
 void imhui_text(ImHui *imhui, const char *text)
 {
     (void) imhui;
     (void) text;
+    assert(false && "TODO: imhui_text() is not implemented for some reason");
 }
 
 bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
 {
-    const Vec2 p = imhui_next_widget_position(imhui, IMHUI_BUTTON_SIZE);
+    const Vec2 p = imhui_next_widget_position(imhui);
     const Vec2 s = IMHUI_BUTTON_SIZE;
+    imhui_expand_layout(imhui, s);
 
     bool clicked = false;
     RGBA color = IMHUI_BUTTON_COLOR;
@@ -611,7 +642,7 @@ bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
 
 void imhui_end(ImHui *imhui)
 {
-    (void) imhui;
+    imhui_layout_end(imhui);
 }
 
 #endif // IMHUI_IMPLEMENTATION
