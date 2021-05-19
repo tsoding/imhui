@@ -536,7 +536,7 @@ void imhui_render_char(ImHui *imhui, Vec2 p, float s, RGBA color, char c)
     }
 }
 
-// TODO: consider rendering the text with bitmap textures instead of triangle
+// TODO(#6): consider rendering the text with bitmap textures instead of triangle
 // It's too many god damn triangles
 void imhui_render_text(ImHui *imhui, Vec2 p, float s, RGBA color, const char *text)
 {
