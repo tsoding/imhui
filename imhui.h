@@ -577,7 +577,7 @@ void imhui_text(ImHui *imhui, const char *text)
 {
     (void) imhui;
     (void) text;
-    assert(false && "TODO: imhui_text() is not implemented for some reason");
+    assert(false && "TODO(#7): imhui_text() is not implemented for some reason");
 }
 
 bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
