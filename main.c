@@ -295,7 +295,7 @@ int main()
     imhui_gl_begin(&imhui_gl, &imhui);
 
     while (!glfwWindowShouldClose(window)) {
-        imhui_begin(&imhui);
+        imhui_begin(&imhui, vec2(0.0f, 0.0f));
         {
             for (size_t i = 1; i <= 5; ++i) {
                 if (imhui_button(&imhui, "Button", i)) {

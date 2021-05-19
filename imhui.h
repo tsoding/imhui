@@ -365,7 +365,7 @@ void imhui_mouse_down(ImHui *imhui);
 void imhui_mouse_up(ImHui *imhui);
 void imhui_mouse_move(ImHui *imhui, float x, float y);
 
-void imhui_begin(ImHui *imhui);
+void imhui_begin(ImHui *imhui, Vec2 position);
 void imhui_text(ImHui *imhui, const char *text);
 bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id);
 void imhui_end(ImHui *imhui);
@@ -477,11 +477,11 @@ void imhui_mouse_move(ImHui *imhui, float x, float y)
     imhui->mouse_pos = vec2(x, y);
 }
 
-void imhui_begin(ImHui *imhui)
+void imhui_begin(ImHui *imhui, Vec2 position)
 {
     imhui->vertices_count = 0;
     imhui->triangles_count = 0;
-    imhui->last_widget_position = vec2(100.0f, 100.0f);
+    imhui->last_widget_position = position;
 }
 
 void imhui_text(ImHui *imhui, const char *text)
