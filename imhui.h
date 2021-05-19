@@ -627,7 +627,7 @@ bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
     const float text_height = FONT_CHAR_HEIGHT * IMHUI_BUTTON_TEXT_SCALE;
     const float text_width = FONT_CHAR_WIDTH * IMHUI_BUTTON_TEXT_SCALE * strlen(text);
 
-    // TODO: imhui_button does not handle the situation when the text is too big to fit into the boundaries of the button
+    // TODO(#9): imhui_button does not handle the situation when the text is too big to fit into the boundaries of the button
     imhui_render_text(
         imhui,
         vec2(
