@@ -606,7 +606,7 @@ bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
             if (imhui_rect_contains(p, s, imhui->mouse_pos)) {
                 clicked = true;
             }
-            // TODO: it's a little bit confusing to use `active == 0` as the indication of no active widget
+            // TODO(#8): it's a little bit confusing to use `active == 0` as the indication of no active widget
             // But using `-1` is actually against the zero initialization rule of the ImHui struct
             imhui->active = 0;
         }
