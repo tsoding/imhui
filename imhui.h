@@ -271,8 +271,9 @@ static const unsigned char FONT[FONT_WIDTH * FONT_HEIGHT] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 };
 
-#define VERTICES_CAPACITY (1024 * 8)
-#define TRIANGLES_CAPACITY (1024 * 8)
+#define VERTICES_CAPACITY (1024 * 32)
+#define TRIANGLES_CAPACITY (1024 * 32)
+#define LAYOUT_STACK_CAPACITY 1024
 
 #define IMHUI_BUTTON_SIZE vec2(100.0f, 50.0f)
 #define IMHUI_BUTTON_COLOR rgba(0.0f, 0.8f, 0.0f, 1.0f)
@@ -344,6 +345,18 @@ typedef enum {
 
 typedef int ImHui_ID;
 
+typedef enum {
+    IMHUI_VERT_LAYOUT,
+    IMHUI_HORZ_LAYOUT,
+} ImHui_Layout_Type;
+
+typedef struct {
+    ImHui_Layout_Type type;
+    Vec2 start;
+    Vec2 size;
+    float padding;
+} ImHui_Layout;
+
 typedef struct {
     size_t width, height;
 
@@ -358,14 +371,15 @@ typedef struct {
     Triangle triangles[TRIANGLES_CAPACITY];
     size_t triangles_count;
 
-    Vec2 last_widget_position;
+    ImHui_Layout layout_stack[LAYOUT_STACK_CAPACITY];
+    size_t layout_stack_size;
 } ImHui;
 
 void imhui_mouse_down(ImHui *imhui);
 void imhui_mouse_up(ImHui *imhui);
 void imhui_mouse_move(ImHui *imhui, float x, float y);
 
-void imhui_begin(ImHui *imhui);
+void imhui_begin(ImHui *imhui, Vec2 position, float padding);
 void imhui_text(ImHui *imhui, const char *text);
 bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id);
 void imhui_end(ImHui *imhui);
@@ -375,9 +389,82 @@ bool imhui_font_char_position(char c, size_t *x, size_t *y);
 void imhui_render_char(ImHui *imhui, Vec2 p, float s, RGBA color, char c);
 void imhui_render_text(ImHui *imhui, Vec2 p, float s, RGBA color, const char *text);
 
+void imhui_layout_begin(ImHui *imhui, ImHui_Layout_Type type, float padding);
+void imhui_layout_end(ImHui *imhui);
+
 #endif // IMHUI_H_
 
 #ifdef IMHUI_IMPLEMENTATION
+
+static void imhui_layout_start(ImHui *imhui, ImHui_Layout_Type type, Vec2 start, float padding)
+{
+    assert(imhui->layout_stack_size < LAYOUT_STACK_CAPACITY);
+    imhui->layout_stack[imhui->layout_stack_size].type = type;
+    imhui->layout_stack[imhui->layout_stack_size].padding = padding;
+    imhui->layout_stack[imhui->layout_stack_size].size = vec2(0.0f, 0.0f);
+    imhui->layout_stack[imhui->layout_stack_size].start = start;
+    imhui->layout_stack_size += 1;
+}
+
+static ImHui_Layout *imhui_top_layout(ImHui *imhui)
+{
+    assert(imhui->layout_stack_size > 0);
+    return &imhui->layout_stack[imhui->layout_stack_size - 1];
+}
+
+static Vec2 imhui_next_widget_position(ImHui *imhui)
+{
+    ImHui_Layout *layout = imhui_top_layout(imhui);
+
+    switch (layout->type) {
+    case IMHUI_VERT_LAYOUT:
+        return vec2(layout->start.x, layout->start.y + layout->size.y);
+    case IMHUI_HORZ_LAYOUT:
+        return vec2(layout->start.x + layout->size.x, layout->start.y);
+    default:
+        assert(false && "imhui_next_widget_position: unreachable");
+        exit(1);
+    }
+}
+
+static void imhui_expand_layout(ImHui *imhui, Vec2 widget_size)
+{
+    ImHui_Layout *layout = imhui_top_layout(imhui);
+
+    switch (layout->type) {
+    case IMHUI_VERT_LAYOUT:
+        layout->size.y += widget_size.y + layout->padding;
+        if (layout->size.x < widget_size.x) {
+            layout->size.x = widget_size.x;
+        }
+        break;
+    case IMHUI_HORZ_LAYOUT:
+        layout->size.x += widget_size.x + layout->padding;
+        if (layout->size.y < widget_size.y) {
+            layout->size.y = widget_size.y;
+        }
+        break;
+    default:
+        assert(false && "imhui_expand_layout: unreachable");
+        exit(1);
+    }
+}
+
+void imhui_layout_begin(ImHui *imhui, ImHui_Layout_Type type, float padding)
+{
+    const Vec2 start = imhui_next_widget_position(imhui);
+    imhui_layout_start(imhui, type, start, padding);
+}
+
+void imhui_layout_end(ImHui *imhui)
+{
+    Vec2 child_layout_size = imhui_top_layout(imhui)->size;
+    --imhui->layout_stack_size;
+
+    if (imhui->layout_stack_size > 0) {
+        imhui_expand_layout(imhui, child_layout_size);
+    }
+}
 
 bool imhui_font_char_position(char c, size_t *x, size_t *y)
 {
@@ -435,7 +522,7 @@ void imhui_render_char(ImHui *imhui, Vec2 p, float s, RGBA color, char c)
                 const size_t x = x0 + xo;
                 const size_t y = y0 + yo;
                 if (FONT[y * FONT_WIDTH + x] > 0x00) {
-                    // TODO: imhui_render_char the vertices in the adjacent pixels are not reused via the indexing
+                    // TODO(#5): imhui_render_char the vertices in the adjacent pixels are not reused via the indexing
                     imhui_fill_rect(
                         imhui,
                         vec2(p.x + xo * s, p.y + yo * s),
@@ -449,6 +536,8 @@ void imhui_render_char(ImHui *imhui, Vec2 p, float s, RGBA color, char c)
     }
 }
 
+// TODO(#6): consider rendering the text with bitmap textures instead of triangle
+// It's too many god damn triangles
 void imhui_render_text(ImHui *imhui, Vec2 p, float s, RGBA color, const char *text)
 {
     const size_t n = strlen(text);
@@ -477,27 +566,25 @@ void imhui_mouse_move(ImHui *imhui, float x, float y)
     imhui->mouse_pos = vec2(x, y);
 }
 
-void imhui_begin(ImHui *imhui)
+void imhui_begin(ImHui *imhui, Vec2 start, float padding)
 {
     imhui->vertices_count = 0;
     imhui->triangles_count = 0;
-    imhui->last_widget_position = vec2(100.0f, 100.0f);
+    imhui_layout_start(imhui, IMHUI_VERT_LAYOUT, start, padding);
 }
 
 void imhui_text(ImHui *imhui, const char *text)
 {
     (void) imhui;
     (void) text;
+    assert(false && "TODO(#7): imhui_text() is not implemented for some reason");
 }
 
 bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
 {
-    const Vec2 p = imhui->last_widget_position;
+    const Vec2 p = imhui_next_widget_position(imhui);
     const Vec2 s = IMHUI_BUTTON_SIZE;
-
-    imhui->last_widget_position =
-        vec2(imhui->last_widget_position.x,
-             imhui->last_widget_position.y + IMHUI_BUTTON_SIZE.y + IMHUI_PADDING);
+    imhui_expand_layout(imhui, s);
 
     bool clicked = false;
     RGBA color = IMHUI_BUTTON_COLOR;
@@ -519,6 +606,8 @@ bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
             if (imhui_rect_contains(p, s, imhui->mouse_pos)) {
                 clicked = true;
             }
+            // TODO(#8): it's a little bit confusing to use `active == 0` as the indication of no active widget
+            // But using `-1` is actually against the zero initialization rule of the ImHui struct
             imhui->active = 0;
         }
     }
@@ -538,7 +627,7 @@ bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
     const float text_height = FONT_CHAR_HEIGHT * IMHUI_BUTTON_TEXT_SCALE;
     const float text_width = FONT_CHAR_WIDTH * IMHUI_BUTTON_TEXT_SCALE * strlen(text);
 
-    // TODO: imhui_button does not handle the situation when the text is too big to fit into the boundaries of the button
+    // TODO(#9): imhui_button does not handle the situation when the text is too big to fit into the boundaries of the button
     imhui_render_text(
         imhui,
         vec2(
@@ -553,7 +642,7 @@ bool imhui_button(ImHui *imhui, const char *text, ImHui_ID id)
 
 void imhui_end(ImHui *imhui)
 {
-    (void) imhui;
+    imhui_layout_end(imhui);
 }
 
 #endif // IMHUI_IMPLEMENTATION
