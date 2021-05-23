@@ -362,7 +362,7 @@ int main()
         }
         imhui_end(&imhui);
 
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClearColor(HEXCOLOR(BACKGROUND_COLOR_HEX));
         glClear(GL_COLOR_BUFFER_BIT);
 
         imhui_gl_render(&imhui_gl, &imhui);

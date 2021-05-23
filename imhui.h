@@ -4,6 +4,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+// NOTE: color scheme is stolen from https://visme.co/blog/website-color-schemes/
+
+#define BACKGROUND_COLOR_HEX 0x05386BFF
+#define COMP(code, index) (((code) >> (8 * (index))) & 0xFF)
+#define HEXCOLOR(code) \
+    ((float) COMP(code, 3) / 255.0f), \
+    ((float) COMP(code, 2) / 255.0f), \
+    ((float) COMP(code, 1) / 255.0f), \
+    ((float) COMP(code, 0) / 255.0f)
+
 #define FONT_WIDTH 128
 #define FONT_HEIGHT 64
 #define FONT_COLS 18
@@ -533,12 +543,12 @@ const unsigned char FONT[FONT_WIDTH * FONT_HEIGHT] = {
 #define LAYOUT_STACK_CAPACITY 1024
 
 #define IMHUI_BUTTON_SIZE vec2(100.0f, 50.0f)
-#define IMHUI_BUTTON_COLOR rgba(0.0f, 0.8f, 0.0f, 1.0f)
-#define IMHUI_BUTTON_COLOR_HOT rgba(0.0f, 1.0f, 0.0f, 1.0f)
-#define IMHUI_BUTTON_COLOR_ACTIVE rgba(1.0f, 0.0f, 0.0f, 1.0f)
-#define IMHUI_BUTTON_COLOR_BASE rgba(0.4f, 0.4f, 0.4f, 1.0f)
+#define IMHUI_BUTTON_COLOR rgba(HEXCOLOR(0x5CDB95FF))
+#define IMHUI_BUTTON_COLOR_HOT rgba(HEXCOLOR(0x8EE4AFFF))
+#define IMHUI_BUTTON_COLOR_ACTIVE rgba(HEXCOLOR(0xEDF5E1FF))
+#define IMHUI_BUTTON_COLOR_BASE rgba(HEXCOLOR(0x379683FF))
 #define IMHUI_BUTTON_TEXT_SCALE 2.0f
-#define IMHUI_BUTTON_TEXT_COLOR rgba(0.0f, 0.0f, 0.0f, 1.0f)
+#define IMHUI_BUTTON_TEXT_COLOR rgba(HEXCOLOR(BACKGROUND_COLOR_HEX))
 #define IMHUI_BUTTON_OFFSET vec2(2.0f, 2.0f)
 #define IMHUI_PADDING 10.0f
 
