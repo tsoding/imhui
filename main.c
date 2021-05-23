@@ -22,8 +22,10 @@ const char *const vert_shader_source =
     "\n"
     "layout(location = 0) in vec2 position;\n"
     "layout(location = 1) in vec4 color;\n"
+    "layout(location = 2) in vec2 uv;\n"
     "\n"
     "out vec4 output_color;\n"
+    "out vec2 output_uv;\n"
     "\n"
     "vec2 flip(vec2 p) {\n"
     "    return vec2(p.x, resolution.y - p.y);\n"
@@ -32,17 +34,22 @@ const char *const vert_shader_source =
     "void main() {\n"
     "    gl_Position = vec4((flip(position) - resolution * 0.5) / (resolution * 0.5), 0.0, 1.0);\n"
     "    output_color = color;\n"
+    "    output_uv = uv;\n"
     "}\n"
     "\n";
 
 const char *const frag_shader_source =
     "#version 330 core\n"
     "\n"
+    "uniform sampler2D font;\n"
+    "\n"
     "in vec4 output_color;\n"
+    "in vec2 output_uv;\n"
     "out vec4 final_color;\n"
     "\n"
     "void main() {\n"
-    "    final_color = output_color;\n"
+    "    vec4 pixel = texture(font, output_uv);\n"
+    "    final_color = pixel.x * output_color;\n"
     "}\n"
     "\n";
 
@@ -103,12 +110,14 @@ bool link_program(GLuint vert_shader, GLuint frag_shader, GLuint *program)
 typedef enum {
     IMHUI_POSITION_ATTRIB = 0,
     IMHUI_COLOR_ATTRIB,
+    IMHUI_UV_ATTRIB,
     COUNT_IMHUI_ATTRIBS
 } ImHui_Attribs;
 
 typedef struct {
     GLuint vao;
     GLuint vert_vbo;
+    GLuint font_texture;
 } ImHui_GL;
 
 void imhui_gl_begin(ImHui_GL *imhui_gl, const ImHui *imhui)
@@ -133,7 +142,7 @@ void imhui_gl_begin(ImHui_GL *imhui_gl, const ImHui *imhui)
             GL_FLOAT,           // type
             0,                  // normalized
             sizeof(imhui->vertices[0]), // stride
-            0                           // offset
+            (void*) offsetof(Vertex, position)  // offset
         );
     }
 
@@ -146,9 +155,49 @@ void imhui_gl_begin(ImHui_GL *imhui_gl, const ImHui *imhui)
             4,                  // numComponents
             GL_FLOAT,           // type
             0,                  // normalized
-            sizeof(imhui->vertices[0]),                 // stride
-            (void*) sizeof(imhui->vertices[0].position) // offset
+            sizeof(imhui->vertices[0]), // stride
+            (void*) offsetof(Vertex, color)     // offset
         );
+    }
+
+    // UV
+    {
+        const ImHui_Attribs attrib = IMHUI_UV_ATTRIB;
+        glEnableVertexAttribArray(attrib);
+        glVertexAttribPointer(
+            attrib,             // index
+            2,                  // numComponents
+            GL_FLOAT,           // type
+            0,                  // normalized
+            sizeof(imhui->vertices[0]), // stride
+            (void*) offsetof(Vertex, uv)        // offset
+        );
+    }
+
+    static_assert(COUNT_IMHUI_ATTRIBS == 3, "The amount of ImHui Vertex attributes have changed");
+
+    // Font Texture
+    {
+        glActiveTexture(GL_TEXTURE0);
+        glGenTextures(1, &imhui_gl->font_texture);
+        glBindTexture(GL_TEXTURE_2D, imhui_gl->font_texture);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        glTexImage2D(GL_TEXTURE_2D,
+                     0,
+                     GL_RGBA,
+                     FONT_WIDTH,
+                     FONT_HEIGHT,
+                     0,
+                     GL_LUMINANCE,
+                     GL_UNSIGNED_BYTE,
+                     FONT);
+        glGenerateMipmap(GL_TEXTURE_2D);
     }
 }
 
